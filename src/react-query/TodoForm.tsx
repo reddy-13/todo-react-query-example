@@ -3,25 +3,36 @@ import { useRef } from 'react';
 import { Todo } from '../hooks/useTodo';
 import axios from 'axios';
 
+interface AddTodoContext {
+  previousTodo: Todo[]
+}
+
 const TodoForm = () => {
   const queryClient = useQueryClient();
-  const addTodo = useMutation<Todo, Error, Todo>({
-    mutationFn: (todo: Todo) =>
-      axios.post<Todo>('https://jsonplaceholder.typicode.com/todos', {
-        todo
-      })
-        .then(res => res.data),
+
+  const addTodo = useMutation<Todo, Error, Todo, AddTodoContext>({
+    mutationFn: (todo: Todo) => axios.post<Todo>('https://jsonplaceholder.typicode.com/todos', {
+      todo
+    })
+      .then(res => res.data),
+    onMutate: (newTodo) => {
+      const previousTodo = queryClient.getQueryData<Todo[]>(['todos']) || [];
+      queryClient.setQueryData<Todo[]>(['todos'], todos => [newTodo, ...(todos || [])])
+      if (ref.current) ref.current.value = '';
+      return { previousTodo }
+    },
     onSuccess
       : (savedTodo, newTodo) => {
         console.log(savedTodo);
-        // 
-        // queryClient.invalidateQueries({
-        //   queryKey: ['todos']
-        // })
-        // Approach2 : updating th data in cahce
-        queryClient.setQueryData<Todo[]>(['todos'], todos => [newTodo, ...(todos || [])])
-        if (ref.current) ref.current.value = '';
-      }
+        queryClient.setQueryData<Todo[]>(['todo'], todos => todos?.map((todo) => (
+          todo === newTodo ? newTodo : todo
+        )))
+
+      },
+    onError: (error, newTodo, context) => {
+      if (!context) return;
+      queryClient.setQueryData<Todo[]>(['todos'], context.previousTodo)
+    }
   })
 
   const ref = useRef<HTMLInputElement>(null);
@@ -46,7 +57,7 @@ const TodoForm = () => {
         </div>
         <div className="col">
           <button disabled={addTodo.isLoading} className="btn btn-primary">
-            {addTodo.isLoading ? 'Loadin...' : 'Add todo'}
+            {addTodo.isLoading ? 'Adding...' : 'Add todo'}
           </button>
         </div>
       </form>
