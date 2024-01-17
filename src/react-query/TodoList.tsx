@@ -1,4 +1,4 @@
-import useTodos from '../hooks/useTodo';
+import useTodos from './hooks/useTodo';
 
 const TodoList = () => {
 
